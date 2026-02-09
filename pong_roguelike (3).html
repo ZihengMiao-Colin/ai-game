@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roguelike 乒乓球 - 生存挑战</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        #gameContainer {
+            position: relative;
+        }
+
+        canvas {
+            border: 3px solid #00d4ff;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+            background: #0a0e27;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            pointer-events: none;
+        }
+
+        .score-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .round-score {
+            text-align: center;
+            font-size: 20px;
+            margin-top: 5px;
+            color: #ffd700;
+        }
+
+        .buff-list {
+            position: absolute;
+            right: 10px;
+            top: 80px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 200px;
+        }
+
+        .buff-item {
+            font-size: 14px;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(0, 212, 255, 0.2);
+            border-radius: 4px;
+            border-left: 3px solid #00d4ff;
+        }
+
+        .buff-item.rare {
+            background: rgba(255, 215, 0, 0.3);
+            border-left-color: #ffd700;
+            animation: glow 1s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+        }
+
+        #buffModal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 14, 39, 0.95);
+            border: 3px solid #00d4ff;
+            border-radius: 15px;
+            padding: 30px;
+            display: none;
+            pointer-events: all;
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.8);
+            z-index: 100;
+        }
+
+        #buffModal.show {
+            display: block;
+        }
+
+        .modal-title {
+            font-size: 28px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .buff-options {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .buff-option {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2a5298 100%);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 200px;
+            text-align: center;
+        }
+
+        .buff-option:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.6);
+            border-color: #fff;
+        }
+
+        .buff-option.rare {
+            background: linear-gradient(135deg, #5a3a1e 0%, #987a2a 100%);
+            border-color: #ffd700;
+            animation: glow 1s ease-in-out infinite;
+        }
+
+        .buff-option h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #00d4ff;
+        }
+
+        .buff-option.rare h3 {
+            color: #ffd700;
+        }
+
+        .buff-option p {
+            font-size: 14px;
+            color: #ccc;
+            line-height: 1.5;
+        }
+
+        .buff-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            margin: 10px 0;
+        }
+
+        .rare-badge {
+            display: inline-block;
+            background: #ffd700;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 14, 39, 0.95);
+            border: 3px solid #ff0066;
+            border-radius: 15px;
+            padding: 40px;
+            display: none;
+            text-align: center;
+            pointer-events: all;
+            box-shadow: 0 0 50px rgba(255, 0, 102, 0.8);
+            z-index: 100;
+            transition: all 0.3s;
+        }
+
+        #gameOver.show {
+            display: block;
+        }
+
+        #gameOver.victory {
+            border-color: #00d4ff;
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.8);
+        }
+
+        #gameOver h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #ff0066;
+        }
+
+        #gameOver p {
+            font-size: 20px;
+            margin: 10px 0;
+        }
+
+        #restartBtn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #ff0066 0%, #ff6b9d 100%);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        #restartBtn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(255, 0, 102, 0.6);
+        }
+
+        .ai-power-indicator {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .power-bar {
+            width: 150px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .power-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0066 0%, #ff6b9d 100%);
+            transition: width 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="ui">
+            <div class="score-display">
+                <div>
+                    <span style="color: #00d4ff;">连胜: </span>
+                    <span id="playerRounds">0</span>
+                    <span style="color: #888; font-size: 14px;"> / 3</span>
+                </div>
+                <div>
+                    <span style="color: #ff0066;">失败: </span>
+                    <span id="aiRounds">0</span>
+                </div>
+            </div>
+            <div class="round-score" style="display: none;">
+                当前局: <span id="playerGames">0</span> - <span id="aiGames">0</span>
+            </div>
+            
+            <div class="buff-list">
+                <div style="font-weight: bold; margin-bottom: 10px; color: #00d4ff;">效果列表</div>
+                <div id="activeBuffs"></div>
+            </div>
+
+            <div class="ai-power-indicator">
+                <div>AI 强度: Lv.<span id="aiLevel">1</span></div>
+                <div class="power-bar">
+                    <div class="power-fill" id="aiPowerBar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="buffModal">
+            <div class="modal-title">💔 输了一局，选择你的补偿！</div>
+            <div class="buff-options" id="buffOptions"></div>
+        </div>
+
+        <div id="gameOver">
+            <h2 id="gameOverTitle">游戏结束</h2>
+            <p style="font-size: 18px; margin: 15px 0;">
+                连胜: <span id="finalPlayerRounds" style="color: #00d4ff; font-weight: bold;">0</span>
+            </p>
+            <p style="font-size: 18px; margin: 15px 0;">
+                失败: <span id="finalAiRounds" style="color: #ff6b9d; font-weight: bold;">0</span>
+            </p>
+            <p id="finalMessage" style="font-size: 22px; margin: 20px 0; color: #ffd700;"></p>
+            <button id="restartBtn">重新开始</button>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // 游戏配置中心 - 所有数值都在这里调整
+        // ========================================
+        const GameConfig = {
+            // 画布设置
+            canvas: {
+                width: 800,
+                height: 600
+            },
+            
+            // 球拍设置
+            paddle: {
+                height: 12,            // 球拍厚度（垂直布局）
+                initialWidth: 120,     // 球拍宽度（增加到120）
+                speed: 9,              // 增加玩家速度
+                offsetFromEdge: 30
+            },
+            
+            // 球设置
+            ball: {
+                radius: 8,
+                initialSpeedX: 2,          // 进一步降低水平速度
+                initialSpeedY: 2,          // 进一步降低垂直速度
+                maxSpeed: 9,
+                speedIncreaseOnHit: 1.02   // 每次击球速度增加 2%
+            },
+            
+            // 比赛规则
+            game: {
+                scoreToWinGame: 5,         // 几分赢得一个小局
+                consecutiveWinsToWin: 3    // 需要连续赢3局才算胜利
+            },
+            
+            // Buff 系统（玩家增益）
+            buffs: {
+                paddleGrowth: 0.15,        // 球拍增长 15%
+                paddleGrowthRare: 0.30,    // 稀有：球拍增长 30%
+                timeSlow: 0.15,            // 时间减速 15%
+                timeSlowRare: 0.30,        // 稀有：时间减速 30%
+                smashPower: 0.08,          // 重击强化 8%
+                smashPowerRare: 0.16,      // 稀有：重击强化 16%
+                speedBoost: 0.20,          // 速度提升 20%
+                speedBoostRare: 0.40,      // 稀有：速度提升 40%
+                rareProbability: 0.25      // 25% 稀有概率
+            },
+            
+            // Debuff 系统（AI削弱）
+            debuffs: {
+                aiSlow: 0.15,              // AI减速 15%
+                aiSlowRare: 0.30,          // 稀有：AI减速 30%
+                aiPaddleShrink: 0.15,      // AI球拍缩小 15%
+                aiPaddleShrinkRare: 0.30,  // 稀有：AI球拍缩小 30%
+                aiConfusion: 0.15,         // AI混乱（反应延迟）15%
+                aiConfusionRare: 0.30,     // 稀有：AI混乱 30%
+                rareProbability: 0.25      // 25% 稀有概率
+            },
+            
+            // AI 成长系统
+            ai: {
+                initialDifficulty: 0.15,   // 初始难度（进一步降低）
+                growthInterval: 6,         // 每 6 个小局成长一次
+                growthFactor: 0.05,        // 每次成长增加 5% 能力
+                maxDifficulty: 0.90        // 最大难度上限
+            }
+        };
+
+        // ========================================
+        // 工具函数
+        // ========================================
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        // ========================================
+        // Buff 定义（玩家增益）
+        // ========================================
+        const BuffDefinitions = {
+            paddle_growth: {
+                id: 'paddle_growth',
+                name: '球拍延伸',
+                description: '你的球拍变得更长',
+                getValue: (isRare) => isRare ? GameConfig.buffs.paddleGrowthRare : GameConfig.buffs.paddleGrowth,
+                apply: (game, value) => {
+                    game.playerPaddle.width *= (1 + value);  // 改为width
+                },
+                displayValue: (value) => `+${(value * 100).toFixed(0)}%`
+            },
+            time_slow: {
+                id: 'time_slow',
+                name: '时间膨胀',
+                description: '球在你的半场减速',
+                getValue: (isRare) => isRare ? GameConfig.buffs.timeSlowRare : GameConfig.buffs.timeSlow,
+                apply: (game, value) => {
+                    game.timeSlowFactor += value;
+                },
+                displayValue: (value) => `+${(value * 100).toFixed(0)}%`
+            },
+            smash_power: {
+                id: 'smash_power',
+                name: '重击强化',
+                description: '你的回击更具威力',
+                getValue: (isRare) => isRare ? GameConfig.buffs.smashPowerRare : GameConfig.buffs.smashPower,
+                apply: (game, value) => {
+                    game.smashPowerBonus += value;
+                },
+                displayValue: (value) => `+${(value * 100).toFixed(0)}%`
+            },
+            speed_boost: {
+                id: 'speed_boost',
+                name: '疾速反应',
+                description: '你的球拍移动更快',
+                getValue: (isRare) => isRare ? GameConfig.buffs.speedBoostRare : GameConfig.buffs.speedBoost,
+                apply: (game, value) => {
+                    game.playerPaddle.speed *= (1 + value);
+                },
+                displayValue: (value) => `+${(value * 100).toFixed(0)}%`
+            }
+        };
+
+        // ========================================
+        // Debuff 定义（AI削弱）
+        // ========================================
+        const DebuffDefinitions = {
+            ai_slow: {
+                id: 'ai_slow',
+                name: 'AI减速',
+                description: 'AI的反应变慢',
+                getValue: (isRare) => isRare ? GameConfig.debuffs.aiSlowRare : GameConfig.debuffs.aiSlow,
+                apply: (game, value) => {
+                    game.aiDifficulty *= (1 - value);
+                    game.aiDifficulty = Math.max(0.05, game.aiDifficulty);
+                },
+                displayValue: (value) => `-${(value * 100).toFixed(0)}%`
+            },
+            ai_paddle_shrink: {
+                id: 'ai_paddle_shrink',
+                name: 'AI球拍缩小',
+                description: 'AI的球拍变短',
+                getValue: (isRare) => isRare ? GameConfig.debuffs.aiPaddleShrinkRare : GameConfig.debuffs.aiPaddleShrink,
+                apply: (game, value) => {
+                    game.aiPaddle.width *= (1 - value);
+                },
+                displayValue: (value) => `-${(value * 100).toFixed(0)}%`
+            },
+            ai_confusion: {
+                id: 'ai_confusion',
+                name: 'AI混乱',
+                description: 'AI判断失误增加',
+                getValue: (isRare) => isRare ? GameConfig.debuffs.aiConfusionRare : GameConfig.debuffs.aiConfusion,
+                apply: (game, value) => {
+                    game.aiConfusionFactor += value;
+                },
+                displayValue: (value) => `+${(value * 100).toFixed(0)}%`
+            }
+        };
+
+        // ========================================
+        // 球拍类（水平方向）
+        // ========================================
+        class Paddle {
+            constructor(x, y, isPlayer = true) {
+                this.x = x;
+                this.y = y;
+                this.width = GameConfig.paddle.initialWidth;  // 水平宽度
+                this.height = GameConfig.paddle.height;       // 垂直厚度
+                this.speed = GameConfig.paddle.speed;
+                this.isPlayer = isPlayer;
+            }
+
+            update(targetX) {
+                const diff = targetX - (this.x + this.width / 2);
+                const moveDistance = Math.min(Math.abs(diff), this.speed);
+                
+                if (diff > 0) {
+                    this.x += moveDistance;
+                } else if (diff < 0) {
+                    this.x -= moveDistance;
+                }
+
+                // 边界限制
+                this.x = clamp(this.x, 0, GameConfig.canvas.width - this.width);
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.isPlayer ? '#00d4ff' : '#ff0066';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // 发光效果
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.isPlayer ? '#00d4ff' : '#ff0066';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.shadowBlur = 0;
+            }
+
+            collidesWith(ball) {
+                return ball.x + ball.radius > this.x &&
+                       ball.x - ball.radius < this.x + this.width &&
+                       ball.y + ball.radius > this.y &&
+                       ball.y - ball.radius < this.y + this.height;
+            }
+        }
+
+        // ========================================
+        // 球类
+        // ========================================
+        class Ball {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = GameConfig.canvas.width / 2;
+                this.y = GameConfig.canvas.height / 2;
+                this.radius = GameConfig.ball.radius;
+                this.speedX = GameConfig.ball.initialSpeedX * (Math.random() > 0.5 ? 1 : -1);
+                this.speedY = GameConfig.ball.initialSpeedY * (Math.random() > 0.5 ? 1 : -1);
+            }
+
+            update(game) {
+                // 应用时间减速效果（仅在玩家半场，即下半场）
+                let effectiveSpeedX = this.speedX;
+                let effectiveSpeedY = this.speedY;
+                
+                if (this.y > GameConfig.canvas.height / 2 && game.timeSlowFactor > 0) {
+                    const slowMultiplier = 1 - game.timeSlowFactor;
+                    effectiveSpeedX *= slowMultiplier;
+                    effectiveSpeedY *= slowMultiplier;
+                }
+
+                this.x += effectiveSpeedX;
+                this.y += effectiveSpeedY;
+
+                // 左右边界碰撞
+                if (this.x - this.radius <= 0 || this.x + this.radius >= GameConfig.canvas.width) {
+                    this.speedX *= -1;
+                    this.x = clamp(this.x, this.radius, GameConfig.canvas.width - this.radius);
+                }
+            }
+
+            draw(ctx) {
+                // 球的轨迹效果
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ffffff';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            bounce(paddle, isPlayer, smashBonus = 0) {
+                // 反弹角度基于击球位置（水平位置）
+                const relativeIntersectX = (paddle.x + paddle.width / 2) - this.x;
+                const normalizedIntersect = relativeIntersectX / (paddle.width / 2);
+                const bounceAngle = normalizedIntersect * (Math.PI / 4);
+
+                // 计算新速度
+                const speed = Math.sqrt(this.speedX * this.speedX + this.speedY * this.speedY);
+                const newSpeed = Math.min(speed * GameConfig.ball.speedIncreaseOnHit * (1 + smashBonus), GameConfig.ball.maxSpeed);
+
+                this.speedX = newSpeed * -Math.sin(bounceAngle);
+                this.speedY = newSpeed * Math.cos(bounceAngle) * (isPlayer ? -1 : 1);
+
+                // 确保不会卡在球拍里
+                if (isPlayer) {
+                    this.y = paddle.y - this.radius;
+                } else {
+                    this.y = paddle.y + paddle.height + this.radius;
+                }
+            }
+        }
+
+        // ========================================
+        // 主游戏类
+        // ========================================
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // 游戏对象 - 玩家在底部，AI在顶部
+                this.playerPaddle = new Paddle(
+                    GameConfig.canvas.width / 2 - GameConfig.paddle.initialWidth / 2, 
+                    GameConfig.canvas.height - GameConfig.paddle.offsetFromEdge - GameConfig.paddle.height, 
+                    true
+                );
+                this.aiPaddle = new Paddle(
+                    GameConfig.canvas.width / 2 - GameConfig.paddle.initialWidth / 2, 
+                    GameConfig.paddle.offsetFromEdge, 
+                    false
+                );
+                this.ball = new Ball();
+                
+                // 分数追踪
+                this.playerScore = 0;
+                this.aiScore = 0;
+                this.consecutiveWins = 0;  // 玩家连胜计数
+                this.totalGamesPlayed = 0;
+                this.totalLosses = 0;      // 玩家输掉的局数
+                
+                // Buff 系统
+                this.activeBuffs = [];
+                this.activeDebuffs = [];
+                this.timeSlowFactor = 0;
+                this.smashPowerBonus = 0;
+                this.aiConfusionFactor = 0;  // AI混乱因子
+                
+                // AI 系统
+                this.aiDifficulty = GameConfig.ai.initialDifficulty;
+                this.aiLevel = 1;
+                
+                // 游戏状态
+                this.isPaused = false;
+                this.isGameOver = false;
+                this.hasWon = false;  // 玩家是否胜利
+                this.mouseX = GameConfig.canvas.width / 2;  // 改为X轴控制
+                
+                this.setupEventListeners();
+                this.gameLoop();
+            }
+
+            setupEventListeners() {
+                this.canvas.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.mouseX = e.clientX - rect.left;  // X轴控制
+                });
+
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    location.reload();
+                });
+            }
+
+            update() {
+                if (this.isPaused || this.isGameOver) return;
+
+                // 更新玩家球拍（跟随鼠标X轴）
+                this.playerPaddle.update(this.mouseX);
+
+                // AI 逻辑（跟随球的X位置，加入混乱因子）
+                const confusionOffset = 100 * (1 - this.aiDifficulty) + 150 * this.aiConfusionFactor;
+                const aiTarget = this.ball.x + (Math.random() - 0.5) * confusionOffset;
+                this.aiPaddle.update(aiTarget);
+
+                // 更新球
+                this.ball.update(this);
+
+                // 碰撞检测
+                if (this.playerPaddle.collidesWith(this.ball)) {
+                    this.ball.bounce(this.playerPaddle, true, this.smashPowerBonus);
+                } else if (this.aiPaddle.collidesWith(this.ball)) {
+                    this.ball.bounce(this.aiPaddle, false);
+                }
+
+                // 得分判定（球超出上边界AI得分，超出下边界玩家得分）
+                if (this.ball.y + this.ball.radius >= GameConfig.canvas.height) {
+                    this.aiScore++;  // 球掉到底部，AI得分
+                    this.checkGameEnd();
+                    this.ball.reset();
+                } else if (this.ball.y - this.ball.radius <= 0) {
+                    this.playerScore++;  // 球飞出顶部，玩家得分
+                    this.checkGameEnd();
+                    this.ball.reset();
+                }
+            }
+
+            checkGameEnd() {
+                // 检查是否有人赢得当前小局
+                if (this.playerScore >= GameConfig.game.scoreToWinGame) {
+                    // 玩家赢了
+                    this.consecutiveWins++;
+                    this.totalGamesPlayed++;
+                    this.resetScores();
+                    
+                    // 检查是否达到胜利条件
+                    if (this.consecutiveWins >= GameConfig.game.consecutiveWinsToWin) {
+                        this.endGame(true);
+                    }
+                    
+                } else if (this.aiScore >= GameConfig.game.scoreToWinGame) {
+                    // AI赢了
+                    this.consecutiveWins = 0;  // 连胜归零
+                    this.totalLosses++;
+                    this.totalGamesPlayed++;
+                    this.resetScores();
+                    
+                    // 显示buff/debuff选择
+                    this.showBuffDebuffSelection();
+                }
+
+                // AI 成长检查
+                if (this.totalGamesPlayed > 0 && this.totalGamesPlayed % GameConfig.ai.growthInterval === 0) {
+                    this.aiGrowth();
+                }
+
+                this.updateUI();
+            }
+
+            resetScores() {
+                this.playerScore = 0;
+                this.aiScore = 0;
+            }
+
+            aiGrowth() {
+                this.aiDifficulty = Math.min(
+                    this.aiDifficulty * (1 + GameConfig.ai.growthFactor),
+                    GameConfig.ai.maxDifficulty
+                );
+                this.aiLevel = Math.floor((this.aiDifficulty - GameConfig.ai.initialDifficulty) / GameConfig.ai.growthFactor) + 1;
+                this.updateAIPowerBar();
+            }
+
+            showBuffDebuffSelection() {
+                this.isPaused = true;
+                
+                // 随机选择 1 个Buff和 1 个Debuff
+                const buffKeys = Object.keys(BuffDefinitions);
+                const debuffKeys = Object.keys(DebuffDefinitions);
+                
+                const selectedOptions = [];
+                
+                // 选择一个Buff（玩家增益）
+                const randomBuff = buffKeys[Math.floor(Math.random() * buffKeys.length)];
+                const buffIsRare = Math.random() < GameConfig.buffs.rareProbability;
+                selectedOptions.push({
+                    type: 'buff',
+                    id: randomBuff,
+                    isRare: buffIsRare,
+                    definition: BuffDefinitions[randomBuff]
+                });
+                
+                // 选择一个Debuff（AI削弱）
+                const randomDebuff = debuffKeys[Math.floor(Math.random() * debuffKeys.length)];
+                const debuffIsRare = Math.random() < GameConfig.debuffs.rareProbability;
+                selectedOptions.push({
+                    type: 'debuff',
+                    id: randomDebuff,
+                    isRare: debuffIsRare,
+                    definition: DebuffDefinitions[randomDebuff]
+                });
+
+                // 创建选项 UI
+                const buffOptions = document.getElementById('buffOptions');
+                buffOptions.innerHTML = '';
+
+                selectedOptions.forEach(option => {
+                    const value = option.definition.getValue(option.isRare);
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'buff-option' + (option.isRare ? ' rare' : '');
+                    
+                    const typeLabel = option.type === 'buff' ? '💪 自我强化' : '⚔️ 削弱AI';
+                    const typeColor = option.type === 'buff' ? '#00d4ff' : '#ff6b9d';
+                    
+                    optionDiv.innerHTML = `
+                        ${option.isRare ? '<div class="rare-badge">⭐ 稀有</div>' : ''}
+                        <div style="color: ${typeColor}; font-size: 12px; margin-bottom: 5px;">${typeLabel}</div>
+                        <h3>${option.definition.name}</h3>
+                        <div class="buff-value">${option.definition.displayValue(value)}</div>
+                        <p>${option.definition.description}</p>
+                    `;
+                    optionDiv.addEventListener('click', () => {
+                        if (option.type === 'buff') {
+                            this.applyBuff(option.id, value, option.isRare);
+                        } else {
+                            this.applyDebuff(option.id, value, option.isRare);
+                        }
+                        document.getElementById('buffModal').classList.remove('show');
+                        this.isPaused = false;
+                    });
+                    buffOptions.appendChild(optionDiv);
+                });
+
+                document.getElementById('buffModal').classList.add('show');
+            }
+
+            applyBuff(buffId, value, isRare) {
+                const buffDef = BuffDefinitions[buffId];
+                buffDef.apply(this, value);
+                
+                // 添加到激活 Buff 列表
+                this.activeBuffs.push({
+                    name: buffDef.name,
+                    value: buffDef.displayValue(value),
+                    isRare: isRare
+                });
+                
+                this.updateActiveBuffsUI();
+            }
+
+            applyDebuff(debuffId, value, isRare) {
+                const debuffDef = DebuffDefinitions[debuffId];
+                debuffDef.apply(this, value);
+                
+                // 添加到激活 Debuff 列表
+                this.activeDebuffs.push({
+                    name: debuffDef.name,
+                    value: debuffDef.displayValue(value),
+                    isRare: isRare
+                });
+                
+                this.updateActiveBuffsUI();
+            }
+
+            updateActiveBuffsUI() {
+                const container = document.getElementById('activeBuffs');
+                container.innerHTML = '';
+                
+                // 显示玩家增益
+                if (this.activeBuffs.length > 0) {
+                    const buffTitle = document.createElement('div');
+                    buffTitle.style.cssText = 'font-weight: bold; margin-bottom: 5px; color: #00d4ff; font-size: 12px;';
+                    buffTitle.textContent = '💪 我的增益';
+                    container.appendChild(buffTitle);
+                    
+                    this.activeBuffs.forEach(buff => {
+                        const div = document.createElement('div');
+                        div.className = 'buff-item' + (buff.isRare ? ' rare' : '');
+                        div.textContent = `${buff.name} ${buff.value}`;
+                        container.appendChild(div);
+                    });
+                }
+                
+                // 显示AI削弱
+                if (this.activeDebuffs.length > 0) {
+                    const debuffTitle = document.createElement('div');
+                    debuffTitle.style.cssText = 'font-weight: bold; margin: 10px 0 5px 0; color: #ff6b9d; font-size: 12px;';
+                    debuffTitle.textContent = '⚔️ AI削弱';
+                    container.appendChild(debuffTitle);
+                    
+                    this.activeDebuffs.forEach(debuff => {
+                        const div = document.createElement('div');
+                        div.className = 'buff-item' + (debuff.isRare ? ' rare' : '');
+                        div.style.borderLeftColor = '#ff6b9d';
+                        div.textContent = `${debuff.name} ${debuff.value}`;
+                        container.appendChild(div);
+                    });
+                }
+            }
+
+            updateUI() {
+                document.getElementById('playerRounds').textContent = this.consecutiveWins;
+                document.getElementById('aiRounds').textContent = this.totalLosses;
+                document.getElementById('playerGames').textContent = '—';
+                document.getElementById('aiGames').textContent = '—';
+                document.getElementById('aiLevel').textContent = this.aiLevel;
+            }
+
+            updateAIPowerBar() {
+                const progress = ((this.aiDifficulty - GameConfig.ai.initialDifficulty) / 
+                                 (GameConfig.ai.maxDifficulty - GameConfig.ai.initialDifficulty)) * 100;
+                document.getElementById('aiPowerBar').style.width = progress + '%';
+            }
+
+            endGame(playerWon) {
+                this.isGameOver = true;
+                this.hasWon = playerWon;
+                
+                const gameOverDiv = document.getElementById('gameOver');
+                const gameOverTitle = document.getElementById('gameOverTitle');
+                
+                if (playerWon) {
+                    gameOverDiv.classList.add('victory');
+                    gameOverTitle.textContent = '🏆 胜利！';
+                    gameOverTitle.style.color = '#00d4ff';
+                    document.getElementById('finalPlayerRounds').textContent = this.consecutiveWins;
+                    document.getElementById('finalAiRounds').textContent = this.totalLosses;
+                    document.getElementById('finalMessage').textContent = '🎉 恭喜！你成功连胜3局，战胜了AI！';
+                } else {
+                    gameOverDiv.classList.remove('victory');
+                    gameOverTitle.textContent = '游戏结束';
+                    gameOverTitle.style.color = '#ff0066';
+                    document.getElementById('finalPlayerRounds').textContent = this.consecutiveWins;
+                    document.getElementById('finalAiRounds').textContent = this.totalLosses;
+                    document.getElementById('finalMessage').textContent = '继续努力，再接再厉！';
+                }
+                
+                gameOverDiv.classList.add('show');
+            }
+
+            draw() {
+                // 清空画布
+                this.ctx.fillStyle = '#0a0e27';
+                this.ctx.fillRect(0, 0, GameConfig.canvas.width, GameConfig.canvas.height);
+
+                // 绘制中线（水平方向）
+                this.ctx.setLineDash([10, 10]);
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, GameConfig.canvas.height / 2);
+                this.ctx.lineTo(GameConfig.canvas.width, GameConfig.canvas.height / 2);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+
+                // 绘制分数（AI在上方，玩家在下方）
+                this.ctx.font = 'bold 48px Arial';
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(this.aiScore, GameConfig.canvas.width / 2, 80);  // AI分数在上
+                this.ctx.fillText(this.playerScore, GameConfig.canvas.width / 2, GameConfig.canvas.height - 40);  // 玩家分数在下
+
+                // 绘制游戏对象
+                this.playerPaddle.draw(this.ctx);
+                this.aiPaddle.draw(this.ctx);
+                this.ball.draw(this.ctx);
+            }
+
+            gameLoop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        // ========================================
+        // 游戏启动
+        // ========================================
+        window.addEventListener('load', () => {
+            new Game();
+        });
+    </script>
+</body>
+</html>
